@@ -1,0 +1,123 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model users {
+  id        String     @id @default(uuid())
+  firstname String
+  lastname  String
+  email     String     @unique
+  password  String
+  status    userstatus @default(OFFLINE)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  messages       messages[]
+  channels       channels[]
+  users_channels users_channels[]
+  chats          chats[]
+  users_chats    users_chats[]
+
+  @@map("users")
+}
+
+model messages {
+  id          Int           @id @default(autoincrement())
+  content     String        @db.Text
+  senderId    String
+  recipient   users?        @relation(fields: [recipientId], references: [id])
+  recipientId String?
+  chats       chats?        @relation(fields: [chatId], references: [id])
+  chatId      String?
+  channels    channels?     @relation(fields: [channelId], references: [id])
+  channelId   String?
+  status      messagestatus @default(SENT)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([senderId])
+  @@index([channelId])
+  @@index([chatId])
+  @@map("messages")
+}
+
+model chats {
+  id     String @id @default(uuid())
+  users  users  @relation(fields: [userId], references: [id])
+  userId String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users_chats users_chats[]
+  messages    messages[]
+
+  @@index([userId])
+  @@map("chats")
+}
+
+model users_chats {
+  id     Int    @id @default(autoincrement())
+  users  users  @relation(fields: [userId], references: [id])
+  userId String
+  chats  chats  @relation(fields: [chatId], references: [id])
+  chatId String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([chatId])
+  @@map("users_chats")
+}
+
+model channels {
+  id        String        @id @default(uuid())
+  name      String
+  users     users         @relation(fields: [userId], references: [id])
+  userId    String
+  status    channelstatus
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  messages       messages[]
+  users_channels users_channels[]
+
+  @@index([userId])
+  @@map("channels")
+}
+
+model users_channels {
+  id        Int      @id @default(autoincrement())
+  users     users    @relation(fields: [userId], references: [id])
+  userId    String
+  channels  channels @relation(fields: [channelId], references: [id])
+  channelId String
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([channelId])
+  @@map("users_channels")
+}
+
+enum userstatus {
+  ONLINE
+  OFFLINE
+}
+
+enum messagestatus {
+  SENT
+  SEEN
+}
+
+enum channelstatus {
+  PRIVATE
+  PUBLIC
+}
