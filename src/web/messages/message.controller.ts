@@ -7,20 +7,25 @@ import {
   Param,
   Patch,
   Post,
+  UseInterceptors,
 } from '@nestjs/common';
 import { GlobalResponseType } from '../../utils/type';
 import { User } from '../../shared/decorators';
 import { messageservice } from './message.service';
-import {
-  AddMessageDto,
-  DeleteMessageDto,
-  EditMessageDto,
-} from './dto';
+import { AddMessageDto, DeleteMessageDto, EditMessageDto } from './dto';
 import { users as UserEntity } from '@prisma/client';
+//import { CacheInterceptor, CacheKey, CacheTTL } from '@nestjs/cache-manager';
 
+//@UseInterceptors(CacheInterceptor)
 @Controller('message')
 export class MessageController {
   constructor(private readonly messageservice: messageservice) {}
+
+  @Get()
+  @HttpCode(HttpStatus.OK)
+  async getAllMessages(): GlobalResponseType {
+    return await this.messageservice.getAllMessages();
+  }
 
   @Post()
   @HttpCode(HttpStatus.OK)
@@ -50,6 +55,8 @@ export class MessageController {
   }
 
   @Post('chat/:id')
+  /* @CacheTTL(0)
+  @CacheKey('chat_messages') */
   @HttpCode(HttpStatus.OK)
   async getAllMessageByChatId(
     @User() user: UserEntity,

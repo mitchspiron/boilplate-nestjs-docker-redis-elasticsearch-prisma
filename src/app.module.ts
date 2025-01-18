@@ -9,6 +9,7 @@ import { AuthModule } from './web/auth/auth.module';
 import { MessageModule } from './web/messages/message.module';
 import { ChannelModule } from './web/channels/channel.module';
 import { SocketModule } from './socket/socket.module';
+import { RedisModule } from './redis/redis.module';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { SocketModule } from './socket/socket.module';
     ChannelModule,
     MessageModule,
     SocketModule,
+    RedisModule,
   ],
   controllers: [AppController],
   providers: [

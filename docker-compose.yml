@@ -13,8 +13,13 @@ services:
       - JWT_EXPIRY=${JWT_EXPIRY}
       - URL_BACK=${URL_BACK}
       - URL_FRONT=${URL_FRONT}
+      - REDIS_HOST=${REDIS_HOST}
+      - REDIS_PORT=${REDIS_PORT}
     volumes:
       - ./src:/app/src
+    depends_on:
+      - db
+      - redis
   db:
     image: mysql:5.7
     ports:
@@ -34,3 +39,7 @@ services:
     environment:
       PMA_HOST: db
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+  redis:
+    image: redis
+    ports:
+      - ${REDIS_PORT}:${REDIS_PORT}

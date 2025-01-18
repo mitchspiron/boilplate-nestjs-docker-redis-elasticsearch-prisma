@@ -2,24 +2,54 @@ import {
   BadRequestException,
   HttpException,
   HttpStatus,
+  Inject,
   Injectable,
   NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
-import {
-  AddMessageDto,
-  DeleteMessageDto,
-  EditMessageDto,
-  GetAllMessageByChatDto,
-} from './dto';
+import { AddMessageDto, DeleteMessageDto, EditMessageDto } from './dto';
 import { GlobalResponseType, ResponseMap } from '../../utils/type';
 import { messages, users } from '@prisma/client';
 import { MESSAGE_STATUS } from 'src/utils/enum';
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
+import { Cache } from 'cache-manager';
 
 @Injectable()
 export class messageservice {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
+  ) {}
+
+  async getAllMessages(): GlobalResponseType {
+    try {
+      const messages = await this.prisma.messages.findMany();
+      if (messages.length == 0) {
+        return ResponseMap(
+          {
+            messages,
+          },
+          'No message found!',
+        );
+      }
+      // Mise en cache des messages
+      const cacheKey = 'chat_messages';
+      await this.cacheManager.set(cacheKey, JSON.stringify(messages));
+
+      return ResponseMap(
+        {
+          messages,
+        },
+        'Messages retrieved Successfully',
+      );
+    } catch (err) {
+      throw new HttpException(
+        err,
+        err.status || HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
 
   async createMessage(user: users, dto: AddMessageDto): GlobalResponseType {
     try {
@@ -97,6 +127,9 @@ export class messageservice {
             },
           });
 
+          const cacheKey = `chat_messages:${newMessage.chatId}`;
+          await this.cacheManager.del(cacheKey);
+
           return ResponseMap(
             {
               message: newMessage,
@@ -133,6 +166,9 @@ export class messageservice {
             chatId: sharedchats[0].chatId,
           },
         });
+
+        const cacheKey = `chat_messages:${newMessage.chatId}`;
+        await this.cacheManager.del(cacheKey);
 
         return ResponseMap(
           {
@@ -210,6 +246,9 @@ export class messageservice {
         },
       });
 
+      const cacheKey = `chat_messages:${updateMessage.chatId}`;
+      await this.cacheManager.del(cacheKey);
+
       return ResponseMap(
         {
           message: updateMessage,
@@ -246,6 +285,9 @@ export class messageservice {
         },
       });
 
+      const cacheKey = `chat_messages:${deleteMessage.chatId}`;
+      await this.cacheManager.del(cacheKey);
+
       return ResponseMap(
         {
           message: deleteMessage,
@@ -262,6 +304,16 @@ export class messageservice {
 
   async getAllMessageByChatId(user: users, chat: string): GlobalResponseType {
     try {
+      const cacheKey = `chat_messages:${chat}`;
+      const cachedMessages = await this.cacheManager.get(cacheKey);
+
+      if (cachedMessages) {
+        return ResponseMap(
+          JSON.parse(cachedMessages as string),
+          'Chat data fetched successfully from cache',
+        );
+      }
+
       const userChat = await this.prisma.users_chats.findFirst({
         where: {
           userId: user.id,
@@ -347,6 +399,17 @@ export class messageservice {
           lastname: senderMap[message.senderId].lastname,
         },
       }));
+
+      // Mise en cache des messages
+
+      await this.cacheManager.set(
+        cacheKey,
+        JSON.stringify({
+          messages: chatExists,
+          users_in_chat: usersInChat,
+        }),
+      );
+
       return ResponseMap(
         {
           messages: chatExists,
@@ -508,6 +571,9 @@ export class messageservice {
           status: MESSAGE_STATUS.SENT,
         },
       });
+
+      const cacheKey = `chat_messages:${chat}`;
+      await this.cacheManager.del(cacheKey);
 
       return ResponseMap(
         {
